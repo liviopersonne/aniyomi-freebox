@@ -60,6 +60,7 @@ class ExternalIntents {
     lateinit var anime: Anime
     lateinit var episode: Episode
     lateinit var source: AnimeSource
+    lateinit var episodeUrl: String
     suspend fun getExternalIntent(context: Context, animeId: Long?, episodeId: Long?): Intent? {
         anime = getAnime.await(animeId!!) ?: return null
         source = sourceManager.get(anime.source) ?: return null
@@ -71,6 +72,7 @@ class ExternalIntents {
             return null
         } else {
             val uri = video.videoUrl!!.toUri()
+            episodeUrl = video.videoUrl!!
             val isOnDevice = if (anime.source == LocalAnimeSource.ID) {
                 true
             } else {

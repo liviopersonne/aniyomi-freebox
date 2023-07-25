@@ -18,7 +18,6 @@ import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-
 object HttpFreeboxService {
 
     private val client = OkHttpClient.Builder()
@@ -42,7 +41,7 @@ object HttpFreeboxService {
     private const val APP_NAME = "Aniyomi"
     private const val APP_VERSION = "1.0"
     private const val DEVICE_NAME = "Smartphone"
-    const val SESSION_TOKEN_HEADER = "X-Fbx-App-Auth"
+    private const val SESSION_TOKEN_HEADER = "X-Fbx-App-Auth"
 
     private fun apiCall(api_url: String): String? {
         if (freebox == null) { return null }
@@ -106,7 +105,7 @@ object HttpFreeboxService {
 
     // Start state: 1
     suspend fun appTokenValid(): Int {
-        if(track_id == null) { return -1 }
+        if (track_id == null) { return -1 }
         return try {
             withContext(Dispatchers.IO) {
                 val body = client.newCall(GET(apiCall("login/authorize/$track_id")!!))
@@ -122,7 +121,7 @@ object HttpFreeboxService {
                     else -> -1
                 }
             }
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             Log.d("Freebox", "Error verifying token validity: ${e.message}")
             -1
         }
@@ -130,7 +129,7 @@ object HttpFreeboxService {
 
     // Start state: 1
     suspend fun getSessionToken(challenge: String? = null): Boolean {
-        if(appToken == null) { state = 0; return false }
+        if (appToken == null) { state = 0; return false }
         return try {
             withContext(Dispatchers.IO) {
                 val newChallenge = challenge ?: run {
@@ -156,7 +155,7 @@ object HttpFreeboxService {
                 state = 2
                 true
             }
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             Log.d("Freebox", "Error getting refresh token: $e")
             state = 0
             false
@@ -165,10 +164,10 @@ object HttpFreeboxService {
 
     // Start state: 2 or 3
     suspend fun logout(): Boolean {
-        if(sessionToken == null) { state = 0; return true }
+        if (sessionToken == null) { state = 0; return true }
         return try {
             withContext(Dispatchers.IO) {
-                //Post request
+                // Post request
                 val request = Request.Builder()
                     .method("POST", RequestBody.create(null, ByteArray(0)))
                     .url(apiCall("login/logout/")!!)
@@ -185,7 +184,7 @@ object HttpFreeboxService {
                     false
                 }
             }
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             Log.d("Freebox", "Exception during logout: ${e.message}")
             false
         }
@@ -193,7 +192,7 @@ object HttpFreeboxService {
 
     // Start state: 2
     suspend fun getReceiversAirmedia(): List<AirmediaReceiver> {
-        if(sessionToken == null) { state = 0; return emptyList() }
+        if (sessionToken == null) { state = 0; return emptyList() }
         return try {
             withContext(Dispatchers.IO) {
                 val request = Request.Builder()
@@ -205,7 +204,7 @@ object HttpFreeboxService {
                 Log.d("Freebox", "Airmedia Config Body: $body")
                 content.result
             }
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             Log.d("Freebox", "Error fetching Airmedia Receivers: $e")
             emptyList()
         }
@@ -214,9 +213,9 @@ object HttpFreeboxService {
     // Start state: 2
     suspend fun freeboxPlayerAvailable(): Int {
         val receivers = getReceiversAirmedia()
-        for(r in receivers) {
-            if(r.name == "Freebox Player") {
-                return if(!r.password_protected) {
+        for (r in receivers) {
+            if (r.name == "Freebox Player") {
+                return if (!r.password_protected) {
                     state = 3
                     1
                 } else {
@@ -229,7 +228,7 @@ object HttpFreeboxService {
 
     // Start state: 3
     suspend fun playVideo(url: String): Boolean {
-        if(freeboxPlayerAvailable() != 1) { state = 2; return false }
+        if (freeboxPlayerAvailable() != 1) { state = 2; return false }
         return try {
             withContext(Dispatchers.IO) {
                 val requestBody = json.encodeToString(AirmediaReceiverRequest("start", "video", url))
@@ -243,15 +242,15 @@ object HttpFreeboxService {
                 val content = json.decodeFromString<FreeboxResponse>(body)
                 content.success
             }
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             Log.d("Freebox", "Error Starting Video: $e")
             false
         }
     }
 
     // Start state: 3
-    suspend fun stopVideo(url: String): Boolean {
-        if(freeboxPlayerAvailable() != 1) { state = 2; return false }
+    suspend fun stopVideo(): Boolean {
+        if (freeboxPlayerAvailable() != 1) { state = 2; return false }
         return try {
             withContext(Dispatchers.IO) {
                 val requestBody = json.encodeToString(AirmediaReceiverRequest("stop", "video"))
@@ -265,12 +264,11 @@ object HttpFreeboxService {
                 val content = json.decodeFromString<FreeboxResponse>(body)
                 content.success
             }
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             Log.d("Freebox", "Error Stopping Video: $e")
             false
         }
     }
-
 
     @Serializable
     data class TokenRequest(

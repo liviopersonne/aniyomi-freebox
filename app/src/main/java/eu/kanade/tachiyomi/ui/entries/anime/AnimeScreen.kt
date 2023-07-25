@@ -58,6 +58,7 @@ import eu.kanade.tachiyomi.ui.category.CategoriesTab
 import eu.kanade.tachiyomi.ui.entries.anime.track.AnimeTrackInfoDialogHomeScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.library.anime.AnimeLibraryTab
+import eu.kanade.tachiyomi.ui.library.anime.AnimeLibraryTab.httpFreeboxService
 import eu.kanade.tachiyomi.ui.player.ExternalIntents
 import eu.kanade.tachiyomi.ui.player.PlayerActivity
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
@@ -266,10 +267,17 @@ class AnimeScreen(
     }
 
     private suspend fun openEpisode(context: Context, episode: Episode, useExternalPlayer: Boolean) {
-        if (useExternalPlayer) {
-            context.startActivity(ExternalIntents.newIntent(context, episode.animeId, episode.id))
+        if (httpFreeboxService.state == 3) {
+            val intent = ExternalIntents()
+            intent.getExternalIntent(context, episode.animeId, episode.id)
+            httpFreeboxService.stopVideo()
+            httpFreeboxService.playVideo(intent.episodeUrl)
         } else {
-            context.startActivity(PlayerActivity.newIntent(context, episode.animeId, episode.id))
+            if (useExternalPlayer) {
+                context.startActivity(ExternalIntents.newIntent(context, episode.animeId, episode.id))
+            } else {
+                context.startActivity(PlayerActivity.newIntent(context, episode.animeId, episode.id))
+            }
         }
     }
 

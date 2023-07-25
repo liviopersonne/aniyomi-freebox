@@ -106,7 +106,7 @@ fun LibraryRegularToolbar(
         onChangeSearchQuery = onSearchQueryChange,
         actions = {
             val castTint = when (castState) {
-                1 -> Color.Yellow // Pending
+                1 -> MaterialTheme.colorScheme.active // Pending
                 2 -> Color.Red // Connected but no freebox player
                 3 -> Color.Blue // Connected
                 else -> LocalContentColor.current // Disconnected

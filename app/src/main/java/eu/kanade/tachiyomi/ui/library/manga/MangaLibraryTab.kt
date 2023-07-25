@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library.manga
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
@@ -113,7 +114,63 @@ object MangaLibraryTab : Tab {
         }
 
         val onClickCast: () -> Unit = {
+            when (AnimeLibraryTab.httpFreeboxService.state) {
+                0 -> { // Request connection
+                    scope.launch {
+                        if (AnimeLibraryTab.httpFreeboxService.searchFreebox()) {
+                            if (AnimeLibraryTab.httpFreeboxService.getAppToken()) {
+                                Toast.makeText(context, "Confirm connection on Freebox (you have 1min30)", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, "Error fetching app token", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Toast.makeText(context, "No freebox found", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                1 -> { // Confirm connection
+                    scope.launch {
+                        when (AnimeLibraryTab.httpFreeboxService.appTokenValid()) {
+                            -1 -> {
+                                AnimeLibraryTab.httpFreeboxService.state = 0
+                                Toast.makeText(context, "App Token is invalid", Toast.LENGTH_SHORT).show()
+                            }
+                            0 -> Toast.makeText(context, "App Token is pending", Toast.LENGTH_SHORT).show()
+                            1 -> {
+                                if (AnimeLibraryTab.httpFreeboxService.getSessionToken()) {
+                                    when (AnimeLibraryTab.httpFreeboxService.freeboxPlayerAvailable()) {
+                                        -1 -> Toast.makeText(context, "Freebox player not found", Toast.LENGTH_SHORT).show()
+                                        0 -> Toast.makeText(context, "Freebox player protected by password", Toast.LENGTH_SHORT).show()
+                                        1 -> Toast.makeText(context, "Service connected !", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Error fetching session token", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                }
+                2 -> { // Try to find Freebox Player
+                    scope.launch {
+                        when (AnimeLibraryTab.httpFreeboxService.freeboxPlayerAvailable()) {
+                            -1 -> Toast.makeText(context, "Freebox player not found", Toast.LENGTH_SHORT).show()
+                            0 -> Toast.makeText(context, "Freebox player protected by password", Toast.LENGTH_SHORT).show()
+                            1 -> Toast.makeText(context, "Service connected !", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                3 -> { // Disconnect
+                    scope.launch {
+                        if (AnimeLibraryTab.httpFreeboxService.logout()) {
+                            Toast.makeText(context, "Successfully logged out", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Logout failed", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
         }
+
 
         val navigateUp: (() -> Unit)? = if (fromMore) navigator::pop else null
 
