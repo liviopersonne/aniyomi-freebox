@@ -72,7 +72,6 @@ object AnimeLibraryTab : Tab {
     private val fromMore = libraryPreferences.bottomNavStyle().get() == 2
     val httpFreeboxService = HttpFreeboxService
 
-
     override val options: TabOptions
         @Composable
         get() {

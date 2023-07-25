@@ -171,7 +171,6 @@ object MangaLibraryTab : Tab {
             }
         }
 
-
         val navigateUp: (() -> Unit)? = if (fromMore) navigator::pop else null
 
         val defaultTitle = if (fromMore) stringResource(R.string.label_library) else stringResource(R.string.label_manga_library)
