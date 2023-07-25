@@ -69,7 +69,6 @@ class App : Application(), DefaultLifecycleObserver, ImageLoaderFactory {
 
     private val basePreferences: BasePreferences by injectLazy()
     private val networkPreferences: NetworkPreferences by injectLazy()
-
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 
     @SuppressLint("LaunchActivityFromNotification")
