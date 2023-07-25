@@ -51,6 +51,7 @@ import eu.kanade.tachiyomi.ui.browse.manga.source.globalsearch.GlobalMangaSearch
 import eu.kanade.tachiyomi.ui.category.CategoriesTab
 import eu.kanade.tachiyomi.ui.entries.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
+import eu.kanade.tachiyomi.ui.library.anime.AnimeLibraryTab
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.util.lang.launchIO
@@ -111,6 +112,10 @@ object MangaLibraryTab : Tab {
             scope.launch { sendSettingsSheetIntent(state.categories[screenModel.activeCategoryIndex]) }
         }
 
+        val onClickCast: () -> Unit = {
+
+        }
+
         val navigateUp: (() -> Unit)? = if (fromMore) navigator::pop else null
 
         val defaultTitle = if (fromMore) stringResource(R.string.label_library) else stringResource(R.string.label_manga_library)
@@ -130,6 +135,8 @@ object MangaLibraryTab : Tab {
                     onClickUnselectAll = screenModel::clearSelection,
                     onClickSelectAll = { screenModel.selectAll(screenModel.activeCategoryIndex) },
                     onClickInvertSelection = { screenModel.invertSelection(screenModel.activeCategoryIndex) },
+                    castState = AnimeLibraryTab.httpFreeboxService.state,
+                    onClickCast = onClickCast,
                     onClickFilter = onClickFilter,
                     onClickRefresh = { onClickRefresh(null) },
                     onClickOpenRandomEntry = {

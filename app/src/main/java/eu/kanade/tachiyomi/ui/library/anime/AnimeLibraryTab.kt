@@ -57,6 +57,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.player.ExternalIntents
 import eu.kanade.tachiyomi.ui.player.PlayerActivity
 import eu.kanade.tachiyomi.ui.player.settings.PlayerPreferences
+import eu.kanade.tachiyomi.util.cast.HttpFreeboxService
 import eu.kanade.tachiyomi.util.lang.launchIO
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
@@ -68,6 +69,7 @@ object AnimeLibraryTab : Tab {
 
     val libraryPreferences: LibraryPreferences by injectLazy()
     private val fromMore = libraryPreferences.bottomNavStyle().get() == 2
+    val httpFreeboxService = HttpFreeboxService
 
     override val options: TabOptions
         @Composable
@@ -114,6 +116,10 @@ object AnimeLibraryTab : Tab {
             scope.launch { sendSettingsSheetIntent(state.categories[screenModel.activeCategoryIndex]) }
         }
 
+        val onClickCast: () -> Unit = {
+
+        }
+
         fun openEpisodeInternal(context: Context, animeId: Long, episodeId: Long) {
             context.startActivity(PlayerActivity.newIntent(context, animeId, episodeId))
         }
@@ -148,6 +154,8 @@ object AnimeLibraryTab : Tab {
                     onClickUnselectAll = screenModel::clearSelection,
                     onClickSelectAll = { screenModel.selectAll(screenModel.activeCategoryIndex) },
                     onClickInvertSelection = { screenModel.invertSelection(screenModel.activeCategoryIndex) },
+                    castState = httpFreeboxService.state,
+                    onClickCast = onClickCast,
                     onClickFilter = onClickFilter,
                     onClickRefresh = { onClickRefresh(null) },
                     onClickOpenRandomEntry = {
