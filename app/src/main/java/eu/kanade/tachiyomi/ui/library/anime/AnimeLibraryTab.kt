@@ -117,7 +117,9 @@ object AnimeLibraryTab : Tab {
         }
 
         val onClickCast: () -> Unit = {
-
+            scope.launch {
+                httpFreeboxService.searchFreebox()
+            }
         }
 
         fun openEpisodeInternal(context: Context, animeId: Long, episodeId: Long) {

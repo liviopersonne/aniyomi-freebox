@@ -113,7 +113,6 @@ object MangaLibraryTab : Tab {
         }
 
         val onClickCast: () -> Unit = {
-
         }
 
         val navigateUp: (() -> Unit)? = if (fromMore) navigator::pop else null
