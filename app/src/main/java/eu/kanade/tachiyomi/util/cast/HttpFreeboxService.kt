@@ -6,8 +6,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
 object HttpFreeboxService {
@@ -28,9 +33,14 @@ object HttpFreeboxService {
     var appToken: String? = null
     var sessionToken: String? = null
     var track_id: Int? = null
+
+    private const val APP_ID = "ani"
+    private const val APP_NAME = "Aniyomi"
+    private const val APP_VERSION = "1.0"
+    private const val DEVICE_NAME = "Smartphone"
     const val SESSION_TOKEN_HEADER = "X-Fbx-App-Auth"
 
-    //Start state: 0
+    // Start state: 0
     suspend fun searchFreebox(): Boolean {
         return try {
             withContext(Dispatchers.IO) {
@@ -38,7 +48,6 @@ object HttpFreeboxService {
                     .execute().body.string()
                 freebox = json.decodeFromString<Freebox>(body)
                 Log.d("Freebox", "Found freebox: $freebox")
-                state = 1
                 true
             }
         } catch (e: Exception) {
@@ -48,20 +57,36 @@ object HttpFreeboxService {
     }
 
     private fun apiCall(api_url: String): String? {
-        if(freebox == null) { return null }
+        if (freebox == null) { return null }
         val f = freebox!!
         return "http://mafreebox.freebox.fr${f.api_base_url}v${f.api_version.substringBefore(".")}/$api_url"
     }
 
+    // Start state: 0
+    suspend fun getAppToken(): Boolean {
+        return try {
+            withContext(Dispatchers.IO) {
+                val requestBody = json.encodeToString(TokenRequest(APP_ID, APP_NAME, APP_VERSION, DEVICE_NAME))
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = Request.Builder()
+                    .url(apiCall("login/authorize/")!!)
+                    .post(requestBody.toRequestBody(mediaType))
+                    .build()
+                val body = client.newCall(request).execute().body.string()
+                val content = json.decodeFromString<FreeboxResponse>(body)
+                if (!content.success) { Log.d("Freebox", "Error in request: ${content.error_code}, ${content.msg}") ; return@withContext false }
+                appToken = content.result.app_token
+                track_id = content.result.track_id
+                Log.d("Freebox", "Got app token: $appToken")
+                state = 1
+                true
+            }
+        } catch (e: Exception) {
+            Log.d("Freebox", "Error in App Token Request: $e")
+            false
+        }
+    }
 
-
-
-
-
-    private const val APP_ID = "ani"
-    private const val APP_NAME = "Aniyomi"
-    private const val APP_VERSION = "1.0"
-    private const val DEVICE_NAME = "Smartphone"
 
     @Serializable
     data class TokenRequest(

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.library.anime
 
 import android.content.Context
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
@@ -118,7 +119,9 @@ object AnimeLibraryTab : Tab {
 
         val onClickCast: () -> Unit = {
             scope.launch {
-                httpFreeboxService.searchFreebox()
+                val a = httpFreeboxService.searchFreebox()
+                val b = httpFreeboxService.getAppToken()
+                Log.d("Freebox", "Found a: $a, b: $b")
             }
         }
 
