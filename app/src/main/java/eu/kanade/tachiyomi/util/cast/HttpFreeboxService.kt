@@ -9,11 +9,15 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+
 
 object HttpFreeboxService {
 
@@ -40,6 +44,25 @@ object HttpFreeboxService {
     private const val DEVICE_NAME = "Smartphone"
     const val SESSION_TOKEN_HEADER = "X-Fbx-App-Auth"
 
+    private fun apiCall(api_url: String): String? {
+        if (freebox == null) { return null }
+        val f = freebox!!
+        return "http://mafreebox.freebox.fr${f.api_base_url}v${f.api_version.substringBefore(".")}/$api_url"
+    }
+
+    private fun getPassword(challenge: String): String {
+        if (appToken == null) {
+            return ""
+        }
+        val appTokenBytes = appToken!!.toByteArray(StandardCharsets.UTF_8)
+        val challengeBytes = challenge.toByteArray(StandardCharsets.UTF_8)
+        val secretKey = SecretKeySpec(appTokenBytes, "HmacSHA1")
+        val mac = Mac.getInstance("HmacSHA1")
+        mac.init(secretKey)
+        val hmacBytes = mac.doFinal(challengeBytes)
+        return hmacBytes.joinToString("") { "%02x".format(it) }
+    }
+
     // Start state: 0
     suspend fun searchFreebox(): Boolean {
         return try {
@@ -54,12 +77,6 @@ object HttpFreeboxService {
             Log.d("Freebox", "Error fetching Freebox server: $e")
             false
         }
-    }
-
-    private fun apiCall(api_url: String): String? {
-        if (freebox == null) { return null }
-        val f = freebox!!
-        return "http://mafreebox.freebox.fr${f.api_base_url}v${f.api_version.substringBefore(".")}/$api_url"
     }
 
     // Start state: 0
@@ -83,6 +100,173 @@ object HttpFreeboxService {
             }
         } catch (e: Exception) {
             Log.d("Freebox", "Error in App Token Request: $e")
+            false
+        }
+    }
+
+    // Start state: 1
+    suspend fun appTokenValid(): Int {
+        if(track_id == null) { return -1 }
+        return try {
+            withContext(Dispatchers.IO) {
+                val body = client.newCall(GET(apiCall("login/authorize/$track_id")!!))
+                    .execute().body.string()
+                val content = json.decodeFromString<FreeboxResponse>(body)
+                if (!content.success) {
+                    return@withContext -1
+                }
+                Log.d("Freebox", "Status: ${content.result.status}")
+                when (content.result.status) {
+                    "pending" -> 0
+                    "granted" -> 1
+                    else -> -1
+                }
+            }
+        } catch(e: Exception) {
+            Log.d("Freebox", "Error verifying token validity: ${e.message}")
+            -1
+        }
+    }
+
+    // Start state: 1
+    suspend fun getSessionToken(challenge: String? = null): Boolean {
+        if(appToken == null) { state = 0; return false }
+        return try {
+            withContext(Dispatchers.IO) {
+                val newChallenge = challenge ?: run {
+                    val body = client.newCall(GET(apiCall("login/")!!))
+                        .execute().body.string()
+                    json.decodeFromString<FreeboxResponse>(body).result.challenge
+                }
+                val requestBody = json.encodeToString(SessionStartRequest(getPassword(newChallenge), APP_ID, APP_VERSION))
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = Request.Builder()
+                    .url(apiCall("login/session/")!!)
+                    .post(requestBody.toRequestBody(mediaType))
+                    .build()
+                val body = client.newCall(request).execute().body.string()
+                val content = json.decodeFromString<FreeboxResponse>(body)
+                if (!content.success) {
+                    Log.d("Freebox", "Error in request: ${content.error_code}, ${content.msg}")
+                    state = 0
+                    return@withContext false
+                }
+                sessionToken = content.result.session_token
+                Log.d("Freebox", "Got session token !")
+                state = 2
+                true
+            }
+        } catch(e: Exception) {
+            Log.d("Freebox", "Error getting refresh token: $e")
+            state = 0
+            false
+        }
+    }
+
+    // Start state: 2 or 3
+    suspend fun logout(): Boolean {
+        if(sessionToken == null) { state = 0; return true }
+        return try {
+            withContext(Dispatchers.IO) {
+                //Post request
+                val request = Request.Builder()
+                    .method("POST", RequestBody.create(null, ByteArray(0)))
+                    .url(apiCall("login/logout/")!!)
+                    .header(SESSION_TOKEN_HEADER, sessionToken!!)
+                    .build()
+                val body = client.newCall(request).execute().body.string()
+                val content = json.decodeFromString<FreeboxResponse>(body)
+                if (content.success) {
+                    Log.d("Freebox", "Session Disconnected")
+                    state = 0
+                    true
+                } else {
+                    Log.d("Freebox", "Logout failed: ${content.error_code}, ${content.msg}")
+                    false
+                }
+            }
+        } catch(e: Exception) {
+            Log.d("Freebox", "Exception during logout: ${e.message}")
+            false
+        }
+    }
+
+    // Start state: 2
+    suspend fun getReceiversAirmedia(): List<AirmediaReceiver> {
+        if(sessionToken == null) { state = 0; return emptyList() }
+        return try {
+            withContext(Dispatchers.IO) {
+                val request = Request.Builder()
+                    .url(apiCall("airmedia/receivers/")!!)
+                    .header(SESSION_TOKEN_HEADER, sessionToken!!)
+                    .build()
+                val body = client.newCall(request).execute().body.string()
+                val content = json.decodeFromString<AirmediaReceiverResponse>(body)
+                Log.d("Freebox", "Airmedia Config Body: $body")
+                content.result
+            }
+        } catch(e: Exception) {
+            Log.d("Freebox", "Error fetching Airmedia Receivers: $e")
+            emptyList()
+        }
+    }
+
+    // Start state: 2
+    suspend fun freeboxPlayerAvailable(): Int {
+        val receivers = getReceiversAirmedia()
+        for(r in receivers) {
+            if(r.name == "Freebox Player") {
+                return if(!r.password_protected) {
+                    state = 3
+                    1
+                } else {
+                    0
+                }
+            }
+        }
+        return -1
+    }
+
+    // Start state: 3
+    suspend fun playVideo(url: String): Boolean {
+        if(freeboxPlayerAvailable() != 1) { state = 2; return false }
+        return try {
+            withContext(Dispatchers.IO) {
+                val requestBody = json.encodeToString(AirmediaReceiverRequest("start", "video", url))
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = Request.Builder()
+                    .url(apiCall("airmedia/receivers/Freebox Player")!!)
+                    .post(requestBody.toRequestBody(mediaType))
+                    .header(SESSION_TOKEN_HEADER, sessionToken!!)
+                    .build()
+                val body = client.newCall(request).execute().body.string()
+                val content = json.decodeFromString<FreeboxResponse>(body)
+                content.success
+            }
+        } catch(e: Exception) {
+            Log.d("Freebox", "Error Starting Video: $e")
+            false
+        }
+    }
+
+    // Start state: 3
+    suspend fun stopVideo(url: String): Boolean {
+        if(freeboxPlayerAvailable() != 1) { state = 2; return false }
+        return try {
+            withContext(Dispatchers.IO) {
+                val requestBody = json.encodeToString(AirmediaReceiverRequest("stop", "video"))
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = Request.Builder()
+                    .url(apiCall("airmedia/receivers/Freebox Player")!!)
+                    .post(requestBody.toRequestBody(mediaType))
+                    .header(SESSION_TOKEN_HEADER, sessionToken!!)
+                    .build()
+                val body = client.newCall(request).execute().body.string()
+                val content = json.decodeFromString<FreeboxResponse>(body)
+                content.success
+            }
+        } catch(e: Exception) {
+            Log.d("Freebox", "Error Stopping Video: $e")
             false
         }
     }
