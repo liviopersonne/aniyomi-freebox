@@ -165,6 +165,7 @@ object HttpFreeboxService {
     // Start state: 2 or 3
     suspend fun logout(): Boolean {
         if (sessionToken == null) { state = 0; return true }
+        getSessionToken()
         return try {
             withContext(Dispatchers.IO) {
                 // Post request
@@ -193,6 +194,7 @@ object HttpFreeboxService {
     // Start state: 2
     suspend fun getReceiversAirmedia(): List<AirmediaReceiver> {
         if (sessionToken == null) { state = 0; return emptyList() }
+        getSessionToken()
         return try {
             withContext(Dispatchers.IO) {
                 val request = Request.Builder()
@@ -228,6 +230,7 @@ object HttpFreeboxService {
 
     // Start state: 3
     suspend fun playVideo(url: String): Boolean {
+        getSessionToken()
         if (freeboxPlayerAvailable() != 1) { state = 2; return false }
         return try {
             withContext(Dispatchers.IO) {
@@ -250,6 +253,7 @@ object HttpFreeboxService {
 
     // Start state: 3
     suspend fun stopVideo(): Boolean {
+        getSessionToken()
         if (freeboxPlayerAvailable() != 1) { state = 2; return false }
         return try {
             withContext(Dispatchers.IO) {

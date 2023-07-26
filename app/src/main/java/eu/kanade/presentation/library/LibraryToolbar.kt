@@ -105,10 +105,10 @@ fun LibraryRegularToolbar(
         searchQuery = searchQuery,
         onChangeSearchQuery = onSearchQueryChange,
         actions = {
-            val castTint = when (castState) {
-                1 -> MaterialTheme.colorScheme.active // Pending
+            val castTint: Color = when (castState) {
+                1 -> Color.Yellow // Pending
                 2 -> Color.Red // Connected but no freebox player
-                3 -> Color.Blue // Connected
+                3 -> Color.Cyan // Connected
                 else -> LocalContentColor.current // Disconnected
             }
             IconButton(onClick = onClickCast) {
