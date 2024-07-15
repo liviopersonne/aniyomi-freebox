@@ -62,6 +62,7 @@ class ExternalIntents {
     lateinit var anime: Anime
     lateinit var source: AnimeSource
     lateinit var episode: Episode
+    lateinit var episodeUrl: String
 
     /**
      * Returns the [Intent] to be sent to an external player.
@@ -85,6 +86,7 @@ class ExternalIntents {
             ?: throw Exception("Video list is empty")
 
         val videoUrl = getVideoUrl(context, video) ?: return null
+        episodeUrl = video.videoUrl!!
 
         val pkgName = playerPreferences.externalPlayerPreference().get()
 

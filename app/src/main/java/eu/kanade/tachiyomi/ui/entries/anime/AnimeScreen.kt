@@ -49,10 +49,14 @@ import eu.kanade.tachiyomi.ui.category.CategoriesTab
 import eu.kanade.tachiyomi.ui.entries.anime.track.AnimeTrackInfoDialogHomeScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.library.anime.AnimeLibraryTab
+import eu.kanade.tachiyomi.ui.library.anime.AnimeLibraryTab.httpFreeboxService
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.tachiyomi.ui.player.ExternalIntents
 import eu.kanade.tachiyomi.ui.player.settings.dialogs.SkipIntroLengthDialog
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
+import eu.kanade.tachiyomi.util.cast.FreeboxState
+import eu.kanade.tachiyomi.util.cast.HttpFreeboxService
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
@@ -348,13 +352,20 @@ class AnimeScreen(
     }
 
     private suspend fun openEpisode(context: Context, episode: Episode, useExternalPlayer: Boolean) {
-        withIOContext {
-            MainActivity.startPlayerActivity(
-                context,
-                episode.animeId,
-                episode.id,
-                useExternalPlayer,
-            )
+        if (httpFreeboxService.state == FreeboxState.CONNECTED) {
+            val intent = ExternalIntents()
+            intent.getExternalIntent(context, episode.animeId, episode.id, null)
+            httpFreeboxService.stopVideo()
+            httpFreeboxService.playVideo(intent.episodeUrl)
+        } else {
+            withIOContext {
+                MainActivity.startPlayerActivity(
+                    context,
+                    episode.animeId,
+                    episode.id,
+                    useExternalPlayer,
+                )
+            }
         }
     }
 

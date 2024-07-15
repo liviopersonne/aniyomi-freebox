@@ -3,6 +3,7 @@ package eu.kanade.presentation.library.components
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CastConnected
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.SelectAll
@@ -14,11 +15,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
+import eu.kanade.tachiyomi.util.cast.FreeboxState
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.Pill
@@ -33,6 +36,8 @@ fun LibraryToolbar(
     onClickUnselectAll: () -> Unit,
     onClickSelectAll: () -> Unit,
     onClickInvertSelection: () -> Unit,
+    castState: FreeboxState,
+    onClickCast: () -> Unit,
     onClickFilter: () -> Unit,
     onClickRefresh: () -> Unit,
     onClickGlobalUpdate: () -> Unit,
@@ -53,6 +58,8 @@ fun LibraryToolbar(
         hasFilters = hasActiveFilters,
         searchQuery = searchQuery,
         onSearchQueryChange = onSearchQueryChange,
+        castState = castState,
+        onClickCast = onClickCast,
         onClickFilter = onClickFilter,
         onClickRefresh = onClickRefresh,
         onClickGlobalUpdate = onClickGlobalUpdate,
@@ -68,6 +75,8 @@ private fun LibraryRegularToolbar(
     hasFilters: Boolean,
     searchQuery: String?,
     onSearchQueryChange: (String?) -> Unit,
+    castState: FreeboxState,
+    onClickCast: () -> Unit,
     onClickFilter: () -> Unit,
     onClickRefresh: () -> Unit,
     onClickGlobalUpdate: () -> Unit,
@@ -97,9 +106,22 @@ private fun LibraryRegularToolbar(
         searchQuery = searchQuery,
         onChangeSearchQuery = onSearchQueryChange,
         actions = {
+            val castTint = when(castState) {
+                FreeboxState.DISCONNECTED -> LocalContentColor.current
+                FreeboxState.PENDING -> Color.Yellow
+                FreeboxState.CONNECTED_NO_PLAYER -> Color.Red
+                FreeboxState.CONNECTED -> Color.Cyan
+            }
+
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
             AppBarActions(
                 persistentListOf(
+                    AppBar.Action(
+                        title = "Cast",
+                        icon = Icons.Outlined.CastConnected,
+                        iconTint = castTint,
+                        onClick = onClickCast,
+                    ),
                     AppBar.Action(
                         title = stringResource(MR.strings.action_filter),
                         icon = Icons.Outlined.FilterList,

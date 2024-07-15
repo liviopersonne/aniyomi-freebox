@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library.anime
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
 import androidx.compose.animation.graphics.res.animatedVectorResource
@@ -45,6 +46,8 @@ import eu.kanade.tachiyomi.ui.entries.anime.AnimeScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.player.settings.PlayerPreferences
+import eu.kanade.tachiyomi.util.cast.FreeboxState
+import eu.kanade.tachiyomi.util.cast.HttpFreeboxService
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
@@ -66,6 +69,8 @@ import tachiyomi.source.local.entries.anime.isLocal
 import uy.kohesive.injekt.injectLazy
 
 object AnimeLibraryTab : Tab() {
+
+    val httpFreeboxService = HttpFreeboxService
 
     @OptIn(ExperimentalAnimationGraphicsApi::class)
     override val options: TabOptions
@@ -110,6 +115,64 @@ object AnimeLibraryTab : Tab() {
             started
         }
 
+        val onClickCast: () -> Unit = {
+            when (httpFreeboxService.state) {
+                FreeboxState.DISCONNECTED -> { // Request connection
+                    scope.launch {
+                        if (httpFreeboxService.searchFreebox()) {
+                            if (httpFreeboxService.getAppToken()) {
+                                Toast.makeText(context, "Confirm connection on Freebox (you have 1min30)", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, "Error fetching app token", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Toast.makeText(context, "No freebox found", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                FreeboxState.PENDING -> { // Confirm connection
+                    scope.launch {
+                        when (httpFreeboxService.appTokenValid()) {
+                            -1 -> {
+                                httpFreeboxService.state = FreeboxState.DISCONNECTED
+                                Toast.makeText(context, "App Token is invalid", Toast.LENGTH_SHORT).show()
+                            }
+                            0 -> Toast.makeText(context, "App Token is pending", Toast.LENGTH_SHORT).show()
+                            1 -> {
+                                if (httpFreeboxService.getSessionToken()) {
+                                    when (httpFreeboxService.freeboxPlayerAvailable()) {
+                                        -1 -> Toast.makeText(context, "Freebox player not found", Toast.LENGTH_SHORT).show()
+                                        0 -> Toast.makeText(context, "Freebox player protected by password", Toast.LENGTH_SHORT).show()
+                                        1 -> Toast.makeText(context, "Service connected !", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Error fetching session token", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                }
+                FreeboxState.CONNECTED_NO_PLAYER -> { // Try to find Freebox Player
+                    scope.launch {
+                        when (httpFreeboxService.freeboxPlayerAvailable()) {
+                            -1 -> Toast.makeText(context, "Freebox player not found", Toast.LENGTH_SHORT).show()
+                            0 -> Toast.makeText(context, "Freebox player protected by password", Toast.LENGTH_SHORT).show()
+                            1 -> Toast.makeText(context, "Service connected !", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                FreeboxState.CONNECTED -> { // Disconnect
+                    scope.launch {
+                        if (httpFreeboxService.logout()) {
+                            Toast.makeText(context, "Successfully logged out", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Logout failed", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
+
         suspend fun openEpisode(episode: Episode) {
             val playerPreferences: PlayerPreferences by injectLazy()
             val extPlayer = playerPreferences.alwaysUseExternalPlayer().get()
@@ -137,6 +200,8 @@ object AnimeLibraryTab : Tab() {
                             screenModel.activeCategoryIndex,
                         )
                     },
+                    castState = httpFreeboxService.state,
+                    onClickCast = onClickCast,
                     onClickFilter = screenModel::showSettingsDialog,
                     onClickRefresh = {
                         onClickRefresh(
